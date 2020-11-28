@@ -64,9 +64,43 @@ router.get("/room/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+router.put("/room/update/:id", isAuthenticated, async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    const { title, description, price, location } = req.fields;
+
+    if (String(req.user._id) === String(room.user._id)) {
+      if (title) {
+        room.title = title;
+      }
+      if (description) {
+        room.description = description;
+      }
+      if (price) {
+        room.description = price;
+      }
+      if (location && location.lat) {
+        room.location = [location.lat, room.location[1]];
+      }
+      if (location && location.lng) {
+        room.location = [room.location[0], location.lng];
+      }
+
+      await room.save();
+
+      res.status(200).json({ room });
+    } else {
+      res.json({ error: "Unauthorized 🙅" });
+    }
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
+    const { title, description, price, location } = req.fields;
 
     if (String(req.user._id) === String(room.user._id)) {
       await Room.findByIdAndRemove(req.params.id);
