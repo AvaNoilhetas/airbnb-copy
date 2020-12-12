@@ -17,7 +17,8 @@ const Room = mongoose.model("Room", {
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"
-  }
+  },
+  pictures: Array
 });
 
 module.exports = Room;

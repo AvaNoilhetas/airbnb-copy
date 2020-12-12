@@ -15,7 +15,8 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
         description: description,
         price: price,
         location: [location.lat, location.lng],
-        user: req.user
+        user: req.user,
+        pictures: []
       });
 
       await newRoom.save();
@@ -101,7 +102,6 @@ router.put("/room/update/:id", isAuthenticated, async (req, res) => {
 router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
-    const { title, description, price, location } = req.fields;
 
     if (String(req.user._id) === String(room.user._id)) {
       await Room.findByIdAndRemove(req.params.id);
@@ -128,6 +128,58 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
     }
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+router.post("/room/upload_picture/:id", isAuthenticated, async (req, res) => {
+  if (req.params.id) {
+    if (req.files.picture) {
+      try {
+        const room = await Room.findById(req.params.id);
+        if (room) {
+          if (String(req.user._id) === String(room.user._id)) {
+            let arr = room.pictures;
+            if (arr.length < 5) {
+              await cloudinary.uploader.upload(
+                req.files.picture.path,
+                {
+                  folder: "airbnb/rooms/" + req.user._id
+                },
+
+                async function(error, result) {
+                  const pictureObj = {
+                    url: result.secure_url,
+                    picture_id: result.public_id
+                  };
+                  arr.push(pictureObj);
+                }
+              );
+
+              await Room.findByIdAndUpdate(req.params.id, { pictures: arr });
+
+              const roomUpdated = await Room.findById(req.params.id);
+
+              res.status(200).json(roomUpdated);
+            } else {
+              res
+                .status(200)
+                .json({ error: "Can't add more than 5 pictures 🙅" });
+            }
+            res.status(200).json({});
+          } else {
+            res.json({ error: "Unauthorized 🙅" });
+          }
+        } else {
+          res.status(400).json({ error: "Room not found 🙅" });
+        }
+      } catch (error) {
+        res.status(400).json({ error: error.message });
+      }
+    } else {
+      res.status(400).json({ error: "Missing parameters 🙅" });
+    }
+  } else {
+    res.status(400).json({ error: "Missing room id 🙅" });
   }
 });
 
