@@ -3,6 +3,7 @@ const router = express.Router();
 const isAuthenticated = require("./../middlewares/isAuthenticated");
 const Room = require("./../models/room");
 const User = require("./../models/user");
+const cloudinary = require("cloudinary").v2;
 
 router.post("/room/publish", isAuthenticated, async (req, res) => {
   try {

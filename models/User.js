@@ -19,7 +19,8 @@ const User = mongoose.model("User", {
     description: {
       required: true,
       type: String
-    }
+    },
+    photo: Object
   },
   rooms: [
     {
@@ -34,12 +35,10 @@ const User = mongoose.model("User", {
   },
   hash: {
     required: true,
-    unique: true,
     type: String
   },
   salt: {
     required: true,
-    unique: true,
     type: String
   }
 });

@@ -4,6 +4,15 @@ const User = require("./../models/user");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
 const uid2 = require("uid2");
+const isAuthenticated = require("./../middlewares/isAuthenticated");
+const cloudinary = require("cloudinary").v2;
+require("dotenv").config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 router.post("/user/sign_up", async (req, res) => {
   const { email, password, username, name, description, rooms } = req.fields;
@@ -11,7 +20,6 @@ router.post("/user/sign_up", async (req, res) => {
   try {
     const userFoundByEmail = await User.findOne({ email: email });
     const userFoundByUserName = await User.findOne({ username: username });
-
     if (userFoundByEmail || userFoundByUserName) {
       res.status(409).json("You already exist! 🙅‍");
     } else if (!username || !email || !password || !name || !description) {
@@ -26,7 +34,8 @@ router.post("/user/sign_up", async (req, res) => {
         account: {
           username: username,
           name: name,
-          description: description
+          description: description,
+          photo: null
         },
         rooms: rooms,
         token: token,
@@ -39,6 +48,8 @@ router.post("/user/sign_up", async (req, res) => {
       res.status(200).json("Your account was successfully created! 🎉");
     }
   } catch (error) {
+    console.log(error);
+
     res.status(400).json({ message: error });
   }
 });
@@ -66,6 +77,102 @@ router.post("/user/sign_in", async (req, res) => {
       res.status(401).json(`Unauthorized 🙅‍`);
     }
   } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+router.post("/user/upload_picture/:id", isAuthenticated, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (user) {
+      if (String(user._id) === String(req.user._id)) {
+        if (!user.account.photo) {
+          await cloudinary.uploader.upload(
+            req.files.picture.path,
+            {
+              folder: "AirBnB/users/" + req.user._id
+            },
+            async function(error, result) {
+              const avatarObj = {
+                url: result.secure_url,
+                picture_id: result.public_id
+              };
+
+              await User.findByIdAndUpdate(req.user._id, {
+                "account.photo": avatarObj
+              });
+            }
+          );
+        } else {
+          await cloudinary.uploader.upload(
+            req.files.picture.path,
+
+            { public_id: user.account.photo.picture_id },
+
+            async function(error, result) {
+              const avatarObj = {
+                url: result.secure_url,
+                picture_id: result.public_id
+              };
+
+              await User.findByIdAndUpdate(req.params.id, {
+                "account.photo": avatarObj
+              });
+            }
+          );
+        }
+        const userUpdated = await User.findById(req.user._id);
+
+        res.status(200).json({
+          account: userUpdated.account,
+          _id: userUpdated._id,
+          email: userUpdated.email,
+          rooms: userUpdated.rooms
+        });
+      } else {
+        res.status(401).json({ error: "Unauthorized 🙅" });
+      }
+    } else {
+      res.status(400).json({ error: "User not found 🙅" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ message: error });
+  }
+});
+
+router.post("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+      if (String(user._id) === String(req.user._id)) {
+        if (user.account.photo) {
+          await cloudinary.uploader.destroy(user.account.photo.picture_id);
+
+          await User.findByIdAndUpdate(req.user._id, {
+            "account.photo": null
+          });
+
+          const userUpdated = await User.findById(req.user._id);
+
+          res.status(200).json({
+            account: userUpdated.account,
+            _id: userUpdated._id,
+            email: userUpdated.email,
+            rooms: userUpdated.rooms
+          });
+        } else {
+          res.status(400).json({ message: "you don't have a picture" });
+        }
+      } else {
+        res.status(401).json({ error: "Unauthorized 🙅" });
+      }
+    } else {
+      res.status(400).json({ error: "User not found 🙅" });
+    }
+  } catch (error) {
+    console.log(error);
     res.status(400).json({ message: error });
   }
 });
