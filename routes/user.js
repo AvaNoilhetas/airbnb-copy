@@ -48,8 +48,6 @@ router.post("/user/sign_up", async (req, res) => {
       res.status(200).json("Your account was successfully created! 🎉");
     }
   } catch (error) {
-    console.log(error);
-
     res.status(400).json({ message: error });
   }
 });
@@ -136,12 +134,11 @@ router.post("/user/upload_picture/:id", isAuthenticated, async (req, res) => {
       res.status(400).json({ error: "User not found 🙅" });
     }
   } catch (error) {
-    console.log(error);
     res.status(400).json({ message: error });
   }
 });
 
-router.post("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
+router.delete("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -149,6 +146,7 @@ router.post("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
       if (String(user._id) === String(req.user._id)) {
         if (user.account.photo) {
           await cloudinary.uploader.destroy(user.account.photo.picture_id);
+          await cloudinary.api.delete_folder("AirBnB/users/" + req.user._id);
 
           await User.findByIdAndUpdate(req.user._id, {
             "account.photo": null
@@ -172,7 +170,6 @@ router.post("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
       res.status(400).json({ error: "User not found 🙅" });
     }
   } catch (error) {
-    console.log(error);
     res.status(400).json({ message: error });
   }
 });

@@ -104,6 +104,14 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
     const room = await Room.findById(req.params.id);
 
     if (String(req.user._id) === String(room.user._id)) {
+      const picturesArr = room.pictures;
+
+      for (let i = 0; i < picturesArr.length; i++) {
+        let picture_id = picturesArr[i].picture_id;
+        await cloudinary.uploader.destroy(picture_id);
+      }
+      await cloudinary.api.delete_folder("AirBnB/rooms/" + req.params.id);
+
       await Room.findByIdAndRemove(req.params.id);
 
       const user = await User.findById(req.user._id);
@@ -143,7 +151,7 @@ router.post("/room/upload_picture/:id", isAuthenticated, async (req, res) => {
               await cloudinary.uploader.upload(
                 req.files.picture.path,
                 {
-                  folder: "airbnb/rooms/" + req.user._id
+                  folder: "airbnb/rooms/" + req.params.id
                 },
 
                 async function(error, result) {
@@ -166,6 +174,53 @@ router.post("/room/upload_picture/:id", isAuthenticated, async (req, res) => {
                 .json({ error: "Can't add more than 5 pictures 🙅" });
             }
             res.status(200).json({});
+          } else {
+            res.json({ error: "Unauthorized 🙅" });
+          }
+        } else {
+          res.status(400).json({ error: "Room not found 🙅" });
+        }
+      } catch (error) {
+        res.status(400).json({ error: error.message });
+      }
+    } else {
+      res.status(400).json({ error: "Missing parameters 🙅" });
+    }
+  } else {
+    res.status(400).json({ error: "Missing room id 🙅" });
+  }
+});
+
+router.put("/room/delete_picture/:id", isAuthenticated, async (req, res) => {
+  if (req.params.id) {
+    if (req.fields.picture_id) {
+      try {
+        const room = await Room.findById(req.params.id);
+
+        if (room) {
+          if (String(req.user._id) === String(room.user._id)) {
+            let picture_id = req.fields.picture_id;
+            let arr = room.pictures;
+            let isPicture = false;
+
+            for (let i = 0; i < arr.length; i++) {
+              if (
+                arr[i].picture_id ===
+                `airbnb/rooms/${req.params.id}/${picture_id}`
+              ) {
+                let num = arr.indexOf(arr[i]);
+                arr.splice(num, 1);
+                await cloudinary.uploader.destroy(arr[i].picture_id);
+                await Room.findByIdAndUpdate(req.params.id, {
+                  pictures: arr
+                });
+                isPicture = true;
+                res.status(200).json({ message: "Picture deleted" });
+              }
+            }
+            if (isPicture === false) {
+              res.status(400).json({ error: "Picture not found" });
+            }
           } else {
             res.json({ error: "Unauthorized 🙅" });
           }
