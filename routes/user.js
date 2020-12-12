@@ -1,18 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const User = require("./../models/user");
+const Room = require("./../models/room");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
 const uid2 = require("uid2");
 const isAuthenticated = require("./../middlewares/isAuthenticated");
 const cloudinary = require("cloudinary").v2;
-require("dotenv").config();
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 router.post("/user/sign_up", async (req, res) => {
   const { email, password, username, name, description, rooms } = req.fields;
@@ -171,6 +165,52 @@ router.delete("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
     }
   } catch (error) {
     res.status(400).json({ message: error });
+  }
+});
+
+router.get("/user/:id", async (req, res) => {
+  if (req.params.id) {
+    try {
+      const user = await User.findById(req.params.id);
+      if (user) {
+        res.json({
+          _id: user._id,
+          account: user.account,
+          rooms: user.rooms
+        });
+      } else {
+        res.json({ message: "User not found 🙅" });
+      }
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  } else {
+    res.status(400).json({ error: "Missing id 🙅" });
+  }
+});
+
+router.get("/user/rooms/:id", async (req, res) => {
+  if (req.params.id) {
+    try {
+      const user = await User.findById(req.params.id);
+      if (user) {
+        if (user.rooms.length > 0) {
+          let rooms = [];
+          for (let i = 0; i < user.rooms.length; i++) {
+            rooms.push(await Room.findById(user.rooms[i]._id));
+          }
+          res.json({ rooms });
+        } else {
+          res.status(200).json({ message: "This user has no room 🤷‍" });
+        }
+      } else {
+        res.json({ message: "User not found 🙅" });
+      }
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  } else {
+    res.status(400).json({ error: "Missing id 🙅" });
   }
 });
 
