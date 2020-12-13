@@ -36,21 +36,6 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/rooms", isAuthenticated, async (req, res) => {
-  try {
-    const rooms = await Room.find()
-      .populate({
-        path: "user",
-        select: "account"
-      })
-      .select("title, description, price, location");
-
-    res.json(rooms);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
 router.get("/room/:id", isAuthenticated, async (req, res) => {
   try {
     const room = await Room.findById(req.params.id)
@@ -235,6 +220,69 @@ router.put("/room/delete_picture/:id", isAuthenticated, async (req, res) => {
     }
   } else {
     res.status(400).json({ error: "Missing room id 🙅" });
+  }
+});
+
+router.get("/rooms", async (req, res) => {
+  try {
+    let filters = {};
+
+    if (req.query.title) {
+      filters.title = new RegExp(req.query.title, "i");
+    }
+
+    if (req.query.priceMin) {
+      filters.price = {
+        $gte: req.query.priceMin
+      };
+    }
+
+    if (req.query.priceMax) {
+      if (filters.price) {
+        filters.price.$lte = req.query.priceMax;
+      } else {
+        filters.price = {
+          $lte: req.query.priceMax
+        };
+      }
+    }
+
+    let sort = {};
+
+    if (req.query.sort === "price-asc") {
+      sort = { price: 1 };
+    } else if (req.query.sort === "price-desc") {
+      sort = { price: -1 };
+    }
+
+    let page;
+
+    if (Number(req.query.page) < 1) {
+      page = 1;
+    } else {
+      page = Number(req.query.page);
+    }
+
+    let limit = Number(req.query.limit);
+
+    const rooms = await Room.find(filters)
+      .sort(sort)
+      .limit(limit)
+      .populate({
+        path: "user",
+        select: "account"
+      })
+      .skip((page - 1) * limit);
+
+    const count = await Room.countDocuments();
+
+    res.status(200).json({
+      result: rooms.length,
+      total: count,
+      rooms: rooms
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
