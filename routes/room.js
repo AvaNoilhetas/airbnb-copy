@@ -5,7 +5,7 @@ const Room = require("./../models/room");
 const User = require("./../models/user");
 const cloudinary = require("cloudinary").v2;
 
-router.post("/room/publish", isAuthenticated, async (req, res) => {
+router.post("/rooms/publish", isAuthenticated, async (req, res) => {
   try {
     const { title, description, price, location } = req.fields;
 
@@ -36,7 +36,7 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/room/:id", isAuthenticated, async (req, res) => {
+router.get("/rooms/:id", async (req, res) => {
   try {
     const room = await Room.findById(req.params.id)
       .populate({
@@ -51,7 +51,7 @@ router.get("/room/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.put("/room/update/:id", isAuthenticated, async (req, res) => {
+router.patch("/rooms/:id/update", isAuthenticated, async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
     const { title, description, price, location } = req.fields;
@@ -64,7 +64,7 @@ router.put("/room/update/:id", isAuthenticated, async (req, res) => {
         room.description = description;
       }
       if (price) {
-        room.description = price;
+        room.price = price;
       }
       if (location && location.lat) {
         room.location = [location.lat, room.location[1]];
@@ -84,18 +84,20 @@ router.put("/room/update/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
+router.delete("/rooms/:id/delete", isAuthenticated, async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
 
     if (String(req.user._id) === String(room.user._id)) {
       const picturesArr = room.pictures;
 
-      for (let i = 0; i < picturesArr.length; i++) {
-        let picture_id = picturesArr[i].picture_id;
-        await cloudinary.uploader.destroy(picture_id);
+      if (picturesArr.length > 0) {
+        for (let i = 0; i < picturesArr.length; i++) {
+          let picture_id = picturesArr[i].picture_id;
+          await cloudinary.uploader.destroy(picture_id);
+        }
+        await cloudinary.api.delete_folder("AirBnB/rooms/" + req.params.id);
       }
-      await cloudinary.api.delete_folder("AirBnB/rooms/" + req.params.id);
 
       await Room.findByIdAndRemove(req.params.id);
 
@@ -124,7 +126,7 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/room/upload_picture/:id", isAuthenticated, async (req, res) => {
+router.post("/rooms/:id/upload_picture", isAuthenticated, async (req, res) => {
   if (req.params.id) {
     if (req.files.picture) {
       try {
@@ -176,7 +178,7 @@ router.post("/room/upload_picture/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.put("/room/delete_picture/:id", isAuthenticated, async (req, res) => {
+router.patch("/rooms/:id/delete_picture", isAuthenticated, async (req, res) => {
   if (req.params.id) {
     if (req.fields.picture_id) {
       try {
@@ -195,7 +197,9 @@ router.put("/room/delete_picture/:id", isAuthenticated, async (req, res) => {
               ) {
                 let num = arr.indexOf(arr[i]);
                 arr.splice(num, 1);
-                await cloudinary.uploader.destroy(arr[i].picture_id);
+                await cloudinary.uploader.destroy(
+                  `airbnb/rooms/${req.params.id}/${picture_id}`
+                );
                 await Room.findByIdAndUpdate(req.params.id, {
                   pictures: arr
                 });
@@ -213,6 +217,7 @@ router.put("/room/delete_picture/:id", isAuthenticated, async (req, res) => {
           res.status(400).json({ error: "Room not found 🙅" });
         }
       } catch (error) {
+        console.log(error);
         res.status(400).json({ error: error.message });
       }
     } else {
