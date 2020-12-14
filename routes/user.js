@@ -75,6 +75,62 @@ router.post("/users/sign_in", async (req, res) => {
   }
 });
 
+router.patch("/users/update", isAuthenticated, async (req, res) => {
+  try {
+    if (
+      req.fields.email ||
+      req.fields.description ||
+      req.fields.username ||
+      req.fields.name
+    ) {
+      if (req.fields.email) {
+        const email = await User.findOne({ email: req.fields.email });
+        if (email) {
+          return res
+            .status(400)
+            .json({ message: "This email is already used. 🙅" });
+        } else {
+          req.user.email = req.fields.email;
+        }
+      }
+
+      if (req.fields.username) {
+        const username = await User.findOne({
+          "account.username": req.fields.username
+        });
+        if (username) {
+          return res
+            .status(400)
+            .json({ message: "This username is already used. 🙅" });
+        } else {
+          req.user.account.username = req.fields.username;
+        }
+      }
+
+      if (req.fields.description) {
+        req.user.account.description = req.fields.description;
+      }
+
+      if (req.fields.name) {
+        req.user.account.name = req.fields.name;
+      }
+
+      await req.user.save();
+
+      res.status(200).json({
+        _id: req.user._id,
+        email: req.user.email,
+        account: req.user.account,
+        rooms: req.user.rooms
+      });
+    } else {
+      res.status(400).json({ error: "Missing parameter 🙅" });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
 router.post("/users/:id/upload_picture", isAuthenticated, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
