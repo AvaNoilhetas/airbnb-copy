@@ -131,6 +131,48 @@ router.patch("/users/update", isAuthenticated, async (req, res) => {
   }
 });
 
+router.patch("/users/update_password", isAuthenticated, async (req, res) => {
+  try {
+    if (
+      SHA256(req.fields.previousPassword + req.user.salt).toString(
+        encBase64
+      ) === req.user.hash
+    ) {
+      if (
+        SHA256(req.fields.previousPassword + req.user.salt).toString(
+          encBase64
+        ) !== SHA256(req.fields.newPassword + req.user.salt).toString(encBase64)
+      ) {
+        const salt = uid2(64);
+        const hash = SHA256(req.fields.newPassword + salt).toString(encBase64);
+        const token = uid2(64);
+
+        req.user.salt = salt;
+        req.user.hash = hash;
+        req.user.token = token;
+
+        await req.user.save();
+
+        res.status(200).json({
+          _id: req.user._id,
+          token: req.user.token,
+          email: req.user.email,
+          account: req.user.account,
+          rooms: req.user.rooms
+        });
+      } else {
+        res.status(400).json({
+          error: "Previous password and new password must be different"
+        });
+      }
+    } else {
+      res.status(400).json({ error: "Wrong previous password" });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
 router.post("/users/:id/upload_picture", isAuthenticated, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
